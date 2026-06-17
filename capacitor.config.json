@@ -1,0 +1,9 @@
+{
+  "appId": "com.rpittdesign.onebitkindle",
+  "appName": "1-bit Kindle",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
