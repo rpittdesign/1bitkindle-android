@@ -13,7 +13,6 @@ import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
-import android.webkit.DownloadListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -36,12 +35,9 @@ public class MainActivity extends BridgeActivity {
                         new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
             }
         }
-    }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        attachDownloadListener();
+        // Attach download listener after bridge is ready
+        getBridge().getWebView().post(this::attachDownloadListener);
     }
 
     private void attachDownloadListener() {
@@ -64,7 +60,7 @@ public class MainActivity extends BridgeActivity {
             String filename = "1bitkindle_" + timestamp + ".png";
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+ — use MediaStore
+                // Android 10+ — use MediaStore (no permission needed)
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
                 values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
@@ -79,7 +75,7 @@ public class MainActivity extends BridgeActivity {
                     }
                 }
             } else {
-                // Android 9 and below — write to file
+                // Android 9 and below
                 File dir = new File(
                         Environment.getExternalStoragePublicDirectory(
                                 Environment.DIRECTORY_PICTURES), "1bitkindle");
@@ -92,7 +88,7 @@ public class MainActivity extends BridgeActivity {
 
             runOnUiThread(() ->
                 Toast.makeText(this,
-                        "Saved to Pictures/1bitkindle/" + filename,
+                        "Saved: Pictures/1bitkindle/" + filename,
                         Toast.LENGTH_LONG).show());
 
         } catch (Exception e) {
