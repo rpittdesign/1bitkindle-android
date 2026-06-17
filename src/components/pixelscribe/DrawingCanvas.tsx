@@ -49,8 +49,9 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Cached brush settings (frozen at pen-down)
-    // E-ink RAF throttle: accumulate dirty rects, flush once per animation frame
-  const rafHandleRef = useRef<number | null>(null);
+    // E-ink time throttle: render at most once per EINK_MS, accumulate dirty in between
+  const EINK_MS = 50; // ~20 fps — matches Supernote partial-refresh rate
+  const lastRenderMsRef = useRef<number>(0);
   const pendingDirtyRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
   const cachedBrushRef = useRef<{
     value: number;
@@ -477,9 +478,10 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
         lastPosRef.current = { x: coords.x, y: coords.y };
       }
 
-      // RAF throttle: accumulate dirty rects across pointermove events,
-      // flush with a single renderDirty call per animation frame.
-      // On e-ink this prevents the display queue from falling behind.
+      // Time throttle: accumulate dirty rects, render immediately if >=EINK_MS
+      // since last render. Renders with no added latency when the display is ready;
+      // silently drops intermediate events when it is not. Buffer writes above are
+      // always synchronous so no stroke data is ever lost.
       if (dirty.minX <= dirty.maxX) {
         const p = pendingDirtyRef.current;
         if (!p) {
@@ -490,13 +492,12 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
           p.maxX = Math.max(p.maxX, dirty.maxX);
           p.maxY = Math.max(p.maxY, dirty.maxY);
         }
-        if (!rafHandleRef.current) {
-          rafHandleRef.current = requestAnimationFrame(() => {
-            rafHandleRef.current = null;
-            const d = pendingDirtyRef.current;
-            pendingDirtyRef.current = null;
-            if (d && d.minX <= d.maxX) renderDirty(d);
-          });
+        const now = performance.now();
+        if (now - lastRenderMsRef.current >= EINK_MS) {
+          lastRenderMsRef.current = now;
+          const d = pendingDirtyRef.current;
+          pendingDirtyRef.current = null;
+          renderDirty(d!);
         }
       }
     },
@@ -521,6 +522,10 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
       isDrawingRef.current = false;
       lastPosRef.current = null;
       cachedBrushRef.current = null;
+      // Flush any throttle-pending dirty so the last stroke segment is always visible
+      const _d = pendingDirtyRef.current;
+      pendingDirtyRef.current = null;
+      if (_d && _d.minX <= _d.maxX) renderDirty(_d);
       try {
         canvasRef.current?.releasePointerCapture(e.pointerId);
       } catch (_) {
