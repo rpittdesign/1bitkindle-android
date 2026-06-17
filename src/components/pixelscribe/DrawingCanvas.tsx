@@ -49,6 +49,9 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Cached brush settings (frozen at pen-down)
+    // E-ink RAF throttle: accumulate dirty rects, flush once per animation frame
+  const rafHandleRef = useRef<number | null>(null);
+  const pendingDirtyRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
   const cachedBrushRef = useRef<{
     value: number;
     radius: number;
@@ -474,7 +477,28 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
         lastPosRef.current = { x: coords.x, y: coords.y };
       }
 
-      if (dirty.minX <= dirty.maxX) renderDirty(dirty); // no grid redraw while drawing
+      // RAF throttle: accumulate dirty rects across pointermove events,
+      // flush with a single renderDirty call per animation frame.
+      // On e-ink this prevents the display queue from falling behind.
+      if (dirty.minX <= dirty.maxX) {
+        const p = pendingDirtyRef.current;
+        if (!p) {
+          pendingDirtyRef.current = { ...dirty };
+        } else {
+          p.minX = Math.min(p.minX, dirty.minX);
+          p.minY = Math.min(p.minY, dirty.minY);
+          p.maxX = Math.max(p.maxX, dirty.maxX);
+          p.maxY = Math.max(p.maxY, dirty.maxY);
+        }
+        if (!rafHandleRef.current) {
+          rafHandleRef.current = requestAnimationFrame(() => {
+            rafHandleRef.current = null;
+            const d = pendingDirtyRef.current;
+            pendingDirtyRef.current = null;
+            if (d && d.minX <= d.maxX) renderDirty(d);
+          });
+        }
+      }
     },
     [getPixelCoords, renderFull, renderDirty, renderGrid]
   );
