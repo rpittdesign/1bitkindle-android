@@ -1,28 +1,19 @@
-# 1-bit Kindle — Android
+# PixelScribe — Android
 
-Sideloadable Android app wrapping the [1bitkindle.com](http://1bitkindle.com) drawing tool.
+Android sideload build of [PixelScribe](https://github.com/rpittdesign/pixel-dither-studio).
+The web version lives in its own repo and is unchanged.
 
-## Download APK
+## What’s different from the web version
 
-1. Go to **Actions** → latest workflow run → **Artifacts** → download `1bitkindle-debug.zip`
-2. Unzip → install `app-debug.apk` on your Android device (enable "Install from unknown sources")
+The **Share** button saves the PNG directly to `Pictures/PixelScribe/` on your device
+instead of uploading to Netlify and generating a QR code.
 
-## What's changed vs. the web version
+## Install
 
-- **Export PNG** saves directly to `Pictures/1bitkindle/` on your device instead of triggering a browser download
-- Works offline — no internet needed once installed
-
-## Build locally
-
-Requires Android Studio / Android SDK + JDK 17.
-
-```bash
-npm install
-npx cap sync android
-cd android && ./gradlew assembleDebug
-# APK → android/app/build/outputs/apk/debug/app-debug.apk
-```
+1. Download the APK from the latest [Actions](../../actions) run → artifact `pixelscribe-android`
+2. Enable “Install from unknown sources” on your Android device
+3. Tap the APK to install
 
 ## Source
 
-Drawing app source: [rpittdesign/robpitt-design/1bitkindle](https://github.com/rpittdesign/robpitt-design)
+Forked from `pixel-dither-studio`. Only `PixelScribeApp.tsx` (export handler) is modified.

@@ -1,9 +1,8 @@
 {
   "appId": "com.rpittdesign.onebitkindle",
-  "appName": "1-bit Kindle",
-  "webDir": "www",
+  "appName": "PixelScribe",
+  "webDir": "dist",
   "android": {
-    "allowMixedContent": true,
     "webContentsDebuggingEnabled": false
   }
 }
