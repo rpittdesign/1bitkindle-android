@@ -49,7 +49,11 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Cached brush settings (frozen at pen-down)
-    // E-ink time throttle: render at most once per EINK_MS, accumulate dirty in between
+    // Preview layer: immediate pen-feedback canvas (thin raw line)
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const lastClientPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // E-ink time throttle: render at most once per EINK_MS, accumulate dirty in between
   const EINK_MS = 50; // ~20 fps — matches Supernote partial-refresh rate
   const lastRenderMsRef = useRef<number>(0);
   const pendingDirtyRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
@@ -382,6 +386,10 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
         /* Kindle fallback */
       }
       isDrawingRef.current = true;
+      // Clear preview canvas and seed client pos for preview drawing
+      lastClientPosRef.current = { x: e.clientX, y: e.clientY };
+      const pc = previewCanvasRef.current;
+      if (pc) pc.getContext('2d')?.clearRect(0, 0, pc.width, pc.height);
 
       const coords = getPixelCoords(e.nativeEvent);
       lastPosRef.current = { x: coords.x, y: coords.y };
@@ -521,11 +529,15 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
 
       isDrawingRef.current = false;
       lastPosRef.current = null;
+      lastClientPosRef.current = null;
       cachedBrushRef.current = null;
       // Flush any throttle-pending dirty so the last stroke segment is always visible
       const _d = pendingDirtyRef.current;
       pendingDirtyRef.current = null;
       if (_d && _d.minX <= _d.maxX) renderDirty(_d);
+      // Clear preview layer now that committed canvas has the final stroke
+      const _pc = previewCanvasRef.current;
+      if (_pc) _pc.getContext('2d')?.clearRect(0, 0, _pc.width, _pc.height);
       try {
         canvasRef.current?.releasePointerCapture(e.pointerId);
       } catch (_) {
@@ -703,6 +715,12 @@ export const DrawingCanvas = forwardRef<DrawingCanvasRef, Props>(({ drawState },
         ref={gridCanvasRef}
         className="block absolute inset-0 pointer-events-none"
         style={{ imageRendering: 'auto' }}
+      />
+      {/* Preview layer: immediate pen feedback on e-ink */}
+      <canvas
+        ref={previewCanvasRef}
+        className="block absolute inset-0 pointer-events-none"
+        style={{ touchAction: 'none' }}
       />
     </div>
   );
